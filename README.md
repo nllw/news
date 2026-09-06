@@ -1,4 +1,4 @@
-# The Daily Dispatch (starter)
+# 
 
 A newspaper front page, built with Next.js + Tailwind, with a private
 `/admin` editor for managing articles and where they sit on the page.
