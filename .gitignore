@@ -1,6 +1,32 @@
+# dependencies
 node_modules
+
+# next.js
 .next
 out
+*.tsbuildinfo
+next-env.d.ts
+
+# env
+.env
 .env.local
+.env.*.local
+
+# database and uploads (runtime data, never committed)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+uploads/
+
+# tests
+coverage
+playwright-report
+test-results
+tests/tmp
+
+# misc
 npm-debug.log*
+yarn-error.log*
 .DS_Store
+.vercel

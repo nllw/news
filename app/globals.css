@@ -2,24 +2,166 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-  background-color: #FAFAF7;
+@layer base {
+  :root {
+    /* Newspaper palette (RGB triplets so Tailwind can apply alpha) */
+    --paper: 250 250 247;
+    --ink: 26 26 24;
+    --rule: 214 214 210;
+    --muted: 89 89 89;
+    --surface: 255 255 255;
+    --wire: 224 31 39; /* decorative rules and large text only */
+    --wire-text: 179 18 26; /* 4.6:1 on paper, safe for small text */
+    --navbar: 26 26 24;
+    --navbar-text: 250 250 247;
+
+    /* Admin (shadcn) palette */
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 209 53% 35%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted-ui: 210 40% 96%;
+    --muted-ui-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 209 53% 35%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --paper: 18 18 18;
+    --ink: 236 236 232;
+    --rule: 46 46 44;
+    --muted: 163 163 158;
+    --surface: 28 28 27;
+    --wire: 255 107 107;
+    --wire-text: 255 122 122;
+    --navbar: 236 236 232;
+    --navbar-text: 18 18 18;
+
+    --background: 224 71% 4%;
+    --foreground: 210 40% 98%;
+    --card: 224 71% 5%;
+    --card-foreground: 210 40% 98%;
+    --popover: 224 71% 4%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 209 60% 60%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted-ui: 217 33% 17%;
+    --muted-ui-foreground: 215 20% 65%;
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 40%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 209 60% 60%;
+  }
+
+  html {
+    @apply bg-paper text-ink antialiased;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-paper font-body text-ink;
+  }
+
+  *:focus-visible {
+    outline: 2px solid rgb(var(--wire-text));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: rgb(var(--wire) / 0.2);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
-body {
-  color: #1A1A18;
+@layer components {
+  .skip-link {
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded focus:bg-ink focus:px-4 focus:py-2 focus:font-ui focus:text-sm focus:text-paper;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .dropcap > p:first-of-type::first-letter {
+    @apply float-left mr-2 font-display font-bold text-ink;
+    font-size: 4.2rem;
+    line-height: 0.8;
+    padding-top: 0.45rem;
+  }
+
+  .headline-link {
+    @apply decoration-1 underline-offset-[3px] transition-colors hover:underline focus-visible:underline;
+  }
+
+  /* Tiptap editor surface */
+  .tiptap {
+    @apply min-h-[50vh] outline-none;
+  }
+  .tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-muted-ui-foreground;
+  }
+  .tiptap img.ProseMirror-selectednode {
+    outline: 3px solid hsl(var(--ring));
+  }
 }
 
-.dropcap::first-letter {
-  float: left;
-  font-family: var(--font-display);
-  font-size: 4.2rem;
-  line-height: 0.8;
-  padding-right: 0.5rem;
-  padding-top: 0.3rem;
-  font-weight: 700;
-}
-
-.font-feature-headline {
-  font-feature-settings: "liga" 1, "kern" 1;
+@media print {
+  .no-print,
+  nav,
+  footer,
+  aside,
+  [data-share-bar],
+  [data-compact-header] {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 12pt;
+  }
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+  .prose a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+    color: #444;
+  }
+  h1 {
+    font-size: 24pt;
+  }
 }

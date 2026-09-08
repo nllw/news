@@ -1,88 +1,113 @@
-# 
+# Broadsheet
 
-A newspaper front page, built with Next.js + Tailwind, with a private
-`/admin` editor for managing articles and where they sit on the page.
-Everything is stored in a local JSON file (`data/articles.json`) — no
-database or external service required to run it locally.
+A newspaper website built with Next.js 14, Prisma, and SQLite, with a full newsroom admin.
 
-## 1. Install
+**Readers get:** a curated front page, section, author, tag, and latest pages, search, article pages with structured data and social previews, RSS, sitemaps, dark mode, and print styles.
 
-From inside this folder:
+**Editors get:** email and password accounts with Admin and Editor roles, a rich-text editor with image uploads, drafts, scheduling, autosave, revision history, a drag-and-drop front page builder, a media library, and management of sections, authors, tags, users, and site settings.
+
+## Run it locally
+
+Requirements: Node 20.
 
 ```bash
 npm install
-```
-
-## 2. Set your editor password
-
-```bash
-cp .env.local.example .env.local
-```
-
-Then open `.env.local` and set your own `EDITOR_PASSWORD` and
-`SESSION_SECRET` (any long random string for the latter). `.env.local`
-is gitignored, so it stays out of your repo.
-
-## 3. Run it
-
-```bash
+cp .env.example .env               # DATABASE_URL for the Prisma CLI
+cp .env.local.example .env.local   # everything else; set AUTH_SECRET and the seed admin
+npm run db:migrate                 # creates data/app.db and applies migrations
+npm run db:seed                    # default sections and the first admin account
 npm run dev
 ```
 
-- Front page: http://localhost:3000
-- Editor: http://localhost:3000/admin (asks for your `EDITOR_PASSWORD`)
+- Site: http://localhost:3000
+- Newsroom: http://localhost:3000/admin (sign in with `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`)
 
-The repo comes with 7 sample articles already placed in different
-slots so you can see the layout working immediately. Edit or delete
-them from `/admin`, or edit `data/articles.json` directly.
+Generate a secret with `openssl rand -base64 32`.
 
-## How the front page is laid out
+### Importing the old JSON store
 
-Every article has a `slot`, set from the editor:
+If you have a `data/articles.json` from the earlier version:
 
-- **hero** — the single lead story at the top (only one shows; if you
-  place a second, the most recently ordered one wins).
-- **hero-secondary** — runs just below the hero.
-- **sidebar** — short list next to the lead package.
-- **grid** — standard story cards in the grid below.
-- **unplaced** — saved but not shown on the front page yet.
+```bash
+npm run import:json
+```
 
-Within a slot, the `order` field controls the sequence (lower first).
+It maps sections and bylines, converts paragraphs to HTML, downloads the image through the upload pipeline, and preserves slugs. Safe to run twice.
+
+## Scripts
+
+| Command                                                 | What it does                                             |
+| ------------------------------------------------------- | -------------------------------------------------------- |
+| `npm run dev`                                           | Development server                                       |
+| `npm run build` / `npm start`                           | Production build; `start` runs migrations first          |
+| `npm run lint` / `npm run typecheck` / `npm run format` | Quality checks                                           |
+| `npm test`                                              | Unit and repository tests (Vitest, temp SQLite database) |
+| `npm run test:e2e`                                      | Playwright smoke tests against a seeded dev server       |
+| `npm run db:migrate`                                    | Create and apply a migration in development              |
+| `npm run db:studio`                                     | Browse the database                                      |
+
+## Configuration
+
+All environment variables are validated at boot in [lib/env.ts](lib/env.ts). In production the server refuses to start if anything required is missing.
+
+| Variable                                                                                             | Purpose                                                           |
+| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `DATABASE_URL`                                                                                       | SQLite file, e.g. `file:../data/app.db` (relative to `prisma/`)   |
+| `AUTH_SECRET`                                                                                        | Signs sessions. At least 32 characters                            |
+| `AUTH_URL`                                                                                           | Public origin in production                                       |
+| `NEXT_PUBLIC_SITE_URL`                                                                               | Used for canonical URLs, feeds, sitemaps, and social cards        |
+| `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`                                                            | First admin, created by the seed when no admin exists             |
+| `STORAGE_DRIVER`                                                                                     | `local` (files under `UPLOADS_DIR`, served at `/uploads`) or `s3` |
+| `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL` | S3-compatible storage (AWS S3, Cloudflare R2, MinIO)              |
+| `CRON_SECRET`                                                                                        | Optional bearer token for `GET /api/cron/publish`                 |
+
+## How publishing works
+
+- **Status**: Draft, Scheduled, Published, Archived. Only Published stories, and Scheduled stories whose time has passed, appear on the public site.
+- **Scheduling**: a scheduled story becomes visible automatically when its time arrives. `GET /api/cron/publish` flips its status to Published for tidiness; point any scheduler at it.
+- **Front page**: stories are placed into four slots (lead, beside the lead, also reading, more stories). Everything else flows into section blocks and the "most recent" list automatically. Arrange slots at `/admin/front-page`.
+- **Slugs**: generated from the headline until locked or published. Changing a live slug adds a permanent redirect from the old address.
+- **Revisions**: every save stores a snapshot. The newest 20 per article are kept and can be compared and restored.
+- **Caching**: public pages are statically rendered and revalidated by tag when content changes, with a 60 second floor.
+
+## Roles
+
+|                                                               | Editor | Admin |
+| ------------------------------------------------------------- | ------ | ----- |
+| Write, edit, publish, schedule, archive                       | ✓      | ✓     |
+| Arrange the front page, manage media and tags, create authors | ✓      | ✓     |
+| Delete articles                                               |        | ✓     |
+| Manage sections, users, and site settings                     |        | ✓     |
+
+## Deploying
+
+The app runs on any single server with a persistent disk. A `Dockerfile` and `docker-compose.yml` are included:
+
+```bash
+cp .env.production.example .env.production   # fill in secrets
+docker compose up -d --build
+```
+
+Migrations run on start, the first admin is created from the seed variables, and the SQLite file and uploads live on named volumes. Put a TLS-terminating proxy (Caddy, nginx, a platform load balancer) in front of port 3000.
 
 ## Project structure
 
 ```
-app/
-  page.tsx                  Front page
-  article/[slug]/page.tsx   Article detail page
-  admin/                    Private editor (protected by middleware.ts)
-  api/articles/             REST endpoints the editor calls
-  api/auth/                 Login/logout
-components/                 Masthead, HeroStory, ArticleCard
-lib/db.ts                   Reads/writes data/articles.json
-lib/auth.ts                 Password + session check
-data/articles.json          Your articles live here
+app/(site)/            Public pages: front page, article, section, author, tag, latest, search, about, contact
+app/admin/             Newsroom: login, dashboard, articles, editor, front page, media, taxonomy, users, settings
+app/admin/actions/     Server actions (all mutations go through these with role checks and Zod validation)
+app/api/               Public read API, upload endpoint, Auth.js, cron
+components/            Public components, admin components, UI primitives
+lib/data/              Prisma queries and cache tags
+lib/validation/        Zod schemas shared by the editor and the server
+lib/                   env, auth guards, slug, sanitiser, images, storage adapters
+prisma/                Schema, migrations, seed
+tests/, e2e/           Vitest and Playwright
 ```
 
-## Before you deploy publicly
+## Public API
 
-This starter is built for local development and is intentionally
-simple:
-
-- **Storage**: `data/articles.json` is read/written on disk. That
-  works great locally, but most hosts (e.g. Vercel) run on read-only,
-  ephemeral filesystems — writes from `/admin` won't persist. Before
-  deploying, swap `lib/db.ts` for a real database (Postgres, SQLite on
-  a persistent volume, etc.).
-- **Auth**: the editor uses a single shared password compared to a
-  cookie. Fine for your own machine; consider a real auth solution
-  (e.g. NextAuth) if more than one person will ever manage this, or if
-  it goes on the public internet.
-- Images are loaded from remote URLs (e.g. Unsplash) via
-  `next/image`. Swap in your own image hosting when you're ready.
-
-## Customizing
-
-- Masthead name/sections: `components/Masthead.tsx`
-- Colors/fonts: `tailwind.config.ts` and `app/layout.tsx`
-- Front page structure (hero + sidebar + grid): `app/page.tsx`
+- `GET /api/articles?page=1&section=politics` — published articles, newest first
+- `GET /api/articles/:slug` — one published article, including sanitised body HTML
+- `GET /feed.xml` — RSS 2.0
+- `GET /sitemap.xml`, `GET /news-sitemap.xml`, `GET /robots.txt`
