@@ -22,7 +22,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
-      - run: npx prisma db push  #if you don't use migrations
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run format:check
